@@ -1,0 +1,74 @@
+[
+  {
+    "id": "arc-lamp",
+    "name": "Arc Table Lamp",
+    "category": "Home",
+    "price": 148,
+    "description": "A sculptural study in balance. Brushed brass meets a softly diffused glass shade for a warm, considered glow.",
+    "image": "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=1000&q=85",
+    "badge": "Bestseller"
+  },
+  {
+    "id": "form-chair",
+    "name": "Form Lounge Chair",
+    "category": "Home",
+    "price": 680,
+    "description": "Generous proportions and a softly curved silhouette make this a quiet centerpiece for slow afternoons.",
+    "image": "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&w=1000&q=85",
+    "badge": "New"
+  },
+  {
+    "id": "ceramic-vase",
+    "name": "Sculpted Ceramic Vase",
+    "category": "Objects",
+    "price": 92,
+    "description": "Hand-finished stoneware with a tactile matte glaze. Beautiful on its own or holding a single branch.",
+    "image": "https://images.unsplash.com/photo-1578500494198-246f612d3b3d?auto=format&fit=crop&w=1000&q=85",
+    "badge": ""
+  },
+  {
+    "id": "everyday-tote",
+    "name": "Everyday Canvas Tote",
+    "category": "Accessories",
+    "price": 58,
+    "description": "A dependable carryall cut from heavyweight organic cotton, finished with considered details and sturdy handles.",
+    "image": "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=1000&q=85",
+    "badge": ""
+  },
+  {
+    "id": "linen-throw",
+    "name": "Washed Linen Throw",
+    "category": "Home",
+    "price": 126,
+    "description": "Relaxed European linen, washed for a naturally soft hand. Made for layering through every season.",
+    "image": "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1000&q=85",
+    "badge": "Low stock"
+  },
+  {
+    "id": "daily-journal",
+    "name": "Daily Journal Set",
+    "category": "Objects",
+    "price": 34,
+    "description": "An invitation to slow down. Two lay-flat notebooks with beautifully tactile, recycled-paper pages.",
+    "image": "https://images.unsplash.com/photo-1531346878377-a5be20888e57?auto=format&fit=crop&w=1000&q=85",
+    "badge": ""
+  },
+  {
+    "id": "stoneware-cup",
+    "name": "Stoneware Cup Set",
+    "category": "Home",
+    "price": 46,
+    "description": "An everyday pair with an easy-to-hold form and softly speckled glaze. Each cup is subtly one of a kind.",
+    "image": "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=1000&q=85",
+    "badge": ""
+  },
+  {
+    "id": "leather-card-case",
+    "name": "Leather Card Case",
+    "category": "Accessories",
+    "price": 74,
+    "description": "A slim essential made from responsibly sourced leather that softens and develops character over time.",
+    "image": "https://images.unsplash.com/photo-1627123424574-724758594e93?auto=format&fit=crop&w=1000&q=85",
+    "badge": ""
+  }
+]

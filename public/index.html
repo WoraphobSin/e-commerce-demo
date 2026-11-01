@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#151614">
+    <meta name="description" content="Thoughtful finds for living well. Discover considered objects, homewares, and everyday essentials at S-Mall.">
+    <title>S-Mall — Thoughtful finds for living well</title>
+    <link rel="preconnect" href="https://images.unsplash.com">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <div class="announcement">A little more considered. Thoughtful finds for everyday living.</div>
+    <header class="site-header">
+      <a class="wordmark" href="/" aria-label="S-Mall home">S-Mall</a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="#shop">Shop all</a>
+        <a href="#story">Our point of view</a>
+      </nav>
+      <div class="header-actions">
+        <button class="icon-button search-toggle" type="button" aria-label="Search products">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 4.2 4.2"></path></svg>
+        </button>
+        <button class="bag-button" type="button" aria-label="Open shopping bag">
+          Bag <span class="bag-count" aria-live="polite">0</span>
+        </button>
+        <button class="account-button" id="account-button" type="button"><span id="account-label">Sign in</span></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <img class="hero-image" src="https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=2200&q=90" alt="Sunlit, thoughtfully furnished living space">
+        <div class="hero-shade"></div>
+        <div class="hero-content">
+          <p class="eyebrow hero-eyebrow">Good things, chosen well</p>
+          <h1 id="hero-title">A softer way<br>to shop.</h1>
+          <p class="hero-copy">Objects for the everyday. Made with intention, chosen to stay.</p>
+          <a class="button button-light" href="#shop">Discover the collection <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="hero-caption"><span>S-Mall / collection no. 01</span><span>Make room for what matters</span></div>
+      </section>
+
+      <section class="intro" id="story">
+        <p class="eyebrow">A considered collection</p>
+        <h2>Less, but better.<br><em>Always.</em></h2>
+        <p class="intro-copy">A small edit of useful, beautiful things. Thoughtfully sourced for the spaces we live in and the lives we make.</p>
+      </section>
+
+      <section class="shop-section" id="shop" aria-labelledby="shop-title">
+        <div class="shop-heading">
+          <div>
+            <p class="eyebrow">Find your everyday</p>
+            <h2 id="shop-title">The collection</h2>
+          </div>
+          <label class="sort-control">Sort by
+            <select id="sort-select" aria-label="Sort products">
+              <option value="featured">Featured</option>
+              <option value="price-low">Price: low to high</option>
+              <option value="price-high">Price: high to low</option>
+              <option value="name">Name</option>
+            </select>
+          </label>
+        </div>
+        <div class="shop-tools">
+          <div class="filters" role="group" aria-label="Filter products by category">
+            <button class="filter-chip is-active" type="button" data-category="All">All pieces</button>
+            <button class="filter-chip" type="button" data-category="Home">Home</button>
+            <button class="filter-chip" type="button" data-category="Objects">Objects</button>
+            <button class="filter-chip" type="button" data-category="Accessories">Accessories</button>
+          </div>
+          <label class="search-field">
+            <span class="visually-hidden">Search the collection</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 4.2 4.2"></path></svg>
+            <input id="search-input" type="search" placeholder="Find something..." autocomplete="off">
+          </label>
+        </div>
+        <p class="results-count" id="results-count" aria-live="polite"></p>
+        <div class="product-grid" id="product-grid" aria-live="polite"></div>
+      </section>
+
+      <section class="newsletter">
+        <p class="eyebrow">A note from us</p>
+        <h2>Good things,<br><em>occasionally.</em></h2>
+        <p>New finds, thoughtful living, and a little inspiration for your inbox.</p>
+        <a class="button button-dark" href="#shop">Explore the collection <span aria-hidden="true">↗</span></a>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <a class="wordmark footer-wordmark" href="/">S-Mall</a>
+      <p>Thoughtful finds for living well.</p>
+      <span>© <span id="year"></span> S-Mall</span>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <dialog class="product-dialog" id="product-dialog" aria-labelledby="product-dialog-title">
+      <button class="dialog-close" type="button" data-close-dialog aria-label="Close product details">×</button>
+      <div class="product-detail" id="product-detail"></div>
+    </dialog>
+
+    <dialog class="auth-dialog" id="auth-dialog" aria-labelledby="auth-title">
+      <button class="dialog-close" type="button" data-close-dialog aria-label="Close sign-in">×</button>
+      <div class="auth-content">
+        <p class="eyebrow">Your S-Mall account</p>
+        <h2 id="auth-title">Welcome back</h2>
+        <p class="auth-intro">Sign in to add thoughtful finds to your bag.</p>
+        <form id="auth-form">
+          <label id="auth-name-label" hidden>Full name
+            <input id="auth-name" name="name" autocomplete="name" maxlength="80">
+          </label>
+          <label>Email address
+            <input name="email" type="email" autocomplete="email" maxlength="254" required>
+          </label>
+          <label>Password
+            <input id="auth-password" name="password" type="password" autocomplete="current-password" minlength="10" maxlength="128" required>
+          </label>
+          <p class="auth-hint">Passwords must be at least 10 characters.</p>
+          <p class="form-error" id="auth-error" role="alert"></p>
+          <button class="button button-dark auth-submit" id="auth-submit" type="submit">Sign in</button>
+        </form>
+        <p class="auth-switch-row"><span id="auth-switch-prompt">New to S-Mall?</span> <button class="text-button" id="auth-switch" type="button">Create an account</button></p>
+      </div>
+    </dialog>
+
+    <dialog class="cart-dialog" id="cart-dialog" aria-labelledby="cart-title">
+      <div class="drawer-header">
+        <div><p class="eyebrow">Your considered finds</p><h2 id="cart-title">Your bag <span id="cart-title-count">(0)</span></h2></div>
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Close shopping bag">×</button>
+      </div>
+      <div class="cart-items" id="cart-items"></div>
+      <div class="cart-footer">
+        <div class="subtotal-row"><span>Subtotal</span><strong id="cart-subtotal">$0</strong></div>
+        <p>Shipping and any applicable taxes are calculated at checkout.</p>
+        <button class="button button-dark checkout-button" id="checkout-button" type="button">Continue to checkout <span aria-hidden="true">↗</span></button>
+        <button class="text-button continue-shopping" type="button" data-close-dialog>Continue browsing</button>
+      </div>
+    </dialog>
+
+    <dialog class="checkout-dialog" id="checkout-dialog" aria-labelledby="checkout-title">
+      <button class="dialog-close" type="button" data-close-dialog aria-label="Close checkout">×</button>
+      <div class="checkout-content">
+        <p class="eyebrow">Almost yours</p>
+        <h2 id="checkout-title">Delivery details</h2>
+        <p class="checkout-notice">This preview saves a demo order only. Secure payment will be available once a payment provider is connected.</p>
+        <form id="checkout-form">
+          <label>Full name<input name="name" autocomplete="name" maxlength="100" required></label>
+          <label>Email address<input name="email" type="email" autocomplete="email" maxlength="254" required></label>
+          <label>Street address<input name="address" autocomplete="street-address" maxlength="200" required></label>
+          <div class="form-row">
+            <label>City<input name="city" autocomplete="address-level2" maxlength="100" required></label>
+            <label>Postal code<input name="postalCode" autocomplete="postal-code" maxlength="20" required></label>
+          </div>
+          <label>Country<input name="country" autocomplete="country-name" maxlength="100" required></label>
+          <div class="checkout-total"><span>Order total</span><strong id="checkout-total">$0</strong></div>
+          <p class="form-error" id="checkout-error" role="alert"></p>
+          <button class="button button-dark place-order-button" type="submit">Place demo order <span aria-hidden="true">↗</span></button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog class="success-dialog" id="success-dialog" aria-labelledby="success-title">
+      <button class="dialog-close" type="button" data-close-dialog aria-label="Close order confirmation">×</button>
+      <div class="success-content">
+        <p class="eyebrow">A note before you go</p>
+        <h2 id="success-title">Your demo order<br><em>is in.</em></h2>
+        <p id="success-message"></p>
+        <p class="checkout-notice">No payment was taken. Live checkout needs a payment provider and server-side credentials.</p>
+        <button class="button button-dark" type="button" data-close-dialog>Back to the collection</button>
+      </div>
+    </dialog>
+  </body>
+</html>

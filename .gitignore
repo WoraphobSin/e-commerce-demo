@@ -1,0 +1,5 @@
+node_modules/
+.env
+data/orders.json
+data/users.json
+npm-debug.log*
