@@ -15,6 +15,7 @@ const checkoutDialog = document.querySelector("#checkout-dialog");
 const successDialog = document.querySelector("#success-dialog");
 const authDialog = document.querySelector("#auth-dialog");
 
+// These values hold the current shop state while the page is open.
 let products = [];
 let activeCategory = "All";
 let cart = [];
@@ -33,6 +34,7 @@ function escapeHtml(value) {
   })[character]);
 }
 
+// Keep each signed-in customer's cart separate in this browser.
 function loadCart(userId) {
   try {
     const saved = JSON.parse(localStorage.getItem(`s-mall-cart:${userId}`) || "[]");
@@ -57,6 +59,7 @@ function showToast(message) {
   toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2600);
 }
 
+// Apply the selected category, search text, and sort order to the product list.
 function getVisibleProducts() {
   const query = searchInput.value.trim().toLowerCase();
   const visible = products.filter((product) => {
@@ -71,6 +74,7 @@ function getVisibleProducts() {
   return visible;
 }
 
+// Build the product cards from server-provided catalog data.
 function renderProducts() {
   const visible = getVisibleProducts();
   resultsCount.textContent = `${visible.length} ${visible.length === 1 ? "piece" : "pieces"}`;
@@ -94,6 +98,7 @@ function renderProducts() {
   `).join("");
 }
 
+// Join cart IDs with the catalog so displayed names and prices come from products.
 function getCartLines() {
   return cart.map((entry) => {
     const product = products.find((item) => item.id === entry.productId);
@@ -101,6 +106,7 @@ function getCartLines() {
   }).filter(Boolean);
 }
 
+// Refresh the bag count, totals, and item list, then save the current user's cart.
 function updateCart() {
   const lines = getCartLines();
   const quantity = lines.reduce((sum, item) => sum + item.quantity, 0);
@@ -135,6 +141,7 @@ function updateCart() {
   saveCart();
 }
 
+// Ask the customer to sign in first, then add the selected item after authentication.
 function addToCart(productId) {
   if (!authUser) {
     openAuth(productId);
@@ -169,6 +176,7 @@ function openProduct(productId) {
   productDialog.showModal();
 }
 
+// Remember a product addition while showing the sign-in/sign-up dialog.
 function openAuth(productId = null) {
   pendingAddProductId = productId;
   if (productDialog.open) productDialog.close();
@@ -179,6 +187,7 @@ function openAuth(productId = null) {
   authDialog.showModal();
 }
 
+// Switch the account form between login and registration fields and labels.
 function renderAuthMode() {
   const isSignup = authMode === "signup";
   document.querySelector("#auth-title").textContent = isSignup ? "Create your account" : "Welcome back";
@@ -192,6 +201,7 @@ function renderAuthMode() {
   document.querySelector("#auth-switch").textContent = isSignup ? "Sign in" : "Create an account";
 }
 
+// Send login or registration details to the API and update the browser after success.
 async function submitAuth(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -237,6 +247,7 @@ async function submitAuth(event) {
   }
 }
 
+// End the server session and clear account-specific cart data from the page.
 async function logout() {
   try {
     const response = await fetch("/api/auth/logout", { method: "POST" });
@@ -253,6 +264,7 @@ async function logout() {
   }
 }
 
+// Submit delivery details and cart item IDs; the server checks prices and saves the order.
 async function submitCheckout(event) {
   event.preventDefault();
   const form = event.currentTarget;
@@ -291,6 +303,7 @@ async function submitCheckout(event) {
   }
 }
 
+// Handle clicks on product and cart controls, including controls rendered later.
 document.addEventListener("click", (event) => {
   const target = event.target instanceof Element ? event.target : null;
   if (!target) return;
@@ -369,6 +382,7 @@ authDialog.addEventListener("close", () => {
   pendingAddProductId = null;
 });
 
+// Load the catalog and login state together before displaying the store.
 async function loadStore() {
   const [productsResponse, authResponse] = await Promise.all([
     fetch("/api/products"),

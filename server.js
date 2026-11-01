@@ -10,6 +10,7 @@ const { promisify } = require("node:util");
 const fs = require("node:fs");
 const path = require("node:path");
 
+// Keep file locations and server settings together so the rest of the code can reuse them.
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, "public");
 const PRODUCTS_FILE = path.join(ROOT, "data", "products.json");
@@ -27,6 +28,7 @@ if (!fs.existsSync(USERS_FILE)) {
 const users = JSON.parse(fs.readFileSync(USERS_FILE, "utf8"));
 const sessions = new Map();
 const loginAttempts = new Map();
+// Queue file writes so two requests don't overwrite each other's updates.
 let orderQueue = Promise.resolve();
 let accountQueue = Promise.resolve();
 
@@ -46,6 +48,7 @@ function sendJson(response, statusCode, payload) {
   response.end(JSON.stringify(payload));
 }
 
+// Store only a hash of the session token in memory, not the original browser cookie value.
 function hashToken(token) {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -69,6 +72,7 @@ function getAuthenticatedUser(request) {
   return users.find((user) => user.id === session.userId) || null;
 }
 
+// Never send password hashes or salts back to the browser.
 function publicUser(user) {
   return { id: user.id, name: user.name, email: user.email };
 }
@@ -102,6 +106,7 @@ function requestHasSameOrigin(request) {
   }
 }
 
+// Slow repeated signup/login attempts from the same IP address.
 function isRateLimited(request) {
   const now = Date.now();
   const key = request.socket.remoteAddress || "unknown";
@@ -114,6 +119,7 @@ function isRateLimited(request) {
   return current.count > 10;
 }
 
+// Run account file updates one at a time to avoid duplicate accounts during concurrent signups.
 function withAccountLock(operation) {
   const result = accountQueue.then(operation);
   accountQueue = result.then(() => undefined, () => undefined);
@@ -131,6 +137,7 @@ async function createSession(response, user) {
   return publicUser(user);
 }
 
+// Validate a new account, hash its password, save it, and sign the customer in.
 async function handleSignup(request, response) {
   if (isRateLimited(request)) {
     return sendJson(response, 429, { error: "Too many sign-in attempts. Please try again later." });
@@ -181,6 +188,7 @@ async function handleSignup(request, response) {
   return sendJson(response, 201, { user: await createSession(response, user) });
 }
 
+// Check the submitted password against the stored hash and create a login session.
 async function handleLogin(request, response) {
   if (isRateLimited(request)) {
     return sendJson(response, 429, { error: "Too many sign-in attempts. Please try again later." });
@@ -204,6 +212,7 @@ async function handleLogin(request, response) {
   return sendJson(response, 200, { user: await createSession(response, user) });
 }
 
+// Read the incoming request body and turn its JSON text into a JavaScript value.
 function readJsonBody(request) {
   return new Promise((resolve, reject) => {
     let body = "";
@@ -231,6 +240,7 @@ function readJsonBody(request) {
   });
 }
 
+// Check delivery details and cart quantities, then calculate prices from trusted catalog data.
 function validateOrder(payload) {
   if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) {
     return { error: "Your cart is empty." };
@@ -299,6 +309,7 @@ function validateOrder(payload) {
   };
 }
 
+// Append an order to local storage without losing another order being written at the same time.
 function saveOrder(order) {
   const write = orderQueue.then(async () => {
     const orders = JSON.parse(fs.readFileSync(ORDERS_FILE, "utf8"));
@@ -311,6 +322,7 @@ function saveOrder(order) {
   return write;
 }
 
+// Match an API request to its route and send back the appropriate JSON response.
 async function handleApi(request, response, pathname) {
   if (request.method === "GET" && pathname === "/api/products") {
     return sendJson(response, 200, { products });
@@ -360,6 +372,7 @@ async function handleApi(request, response, pathname) {
   return sendJson(response, 404, { error: "API route not found." });
 }
 
+// Serve website files from public/ and reject paths that try to leave that folder.
 function serveStatic(request, response, pathname) {
   let decodedPath;
   try {
@@ -396,6 +409,7 @@ function serveStatic(request, response, pathname) {
   });
 }
 
+// The main request handler sends API URLs to handleApi and all other URLs to the static file server.
 const server = http.createServer(async (request, response) => {
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("X-Frame-Options", "DENY");
