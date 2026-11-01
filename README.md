@@ -1,12 +1,13 @@
 # S-Mall
 
-A responsive e-commerce storefront starter with a Node.js API, product catalog, account registration and login, browser-persisted per-account cart, and local demo-order storage. It uses only Node.js built-in modules; no package installation is required.
+A responsive e-commerce storefront starter with a Node.js GraphQL API, product catalog, account registration and login, browser-persisted per-account cart, and local demo-order storage.
 
 ## Run locally
 
 Requires Node.js 18 or newer.
 
 ```sh
+npm install
 npm start
 ```
 
@@ -15,11 +16,32 @@ Open [http://localhost:3000](http://localhost:3000). For automatic server restar
 ## Included
 
 - Product catalog with search, category filters, sorting, and quick-view details
+- A GraphQL API at `POST /graphql` for product queries and account/order mutations
 - Email/password sign-up, login, and logout; product additions and orders require a signed-in account
 - Passwords hashed with Node.js `scrypt`; signed sessions use an HttpOnly, SameSite cookie
 - Shopping bag with quantity controls, subtotal, and browser `localStorage` persistence scoped to each account
 - Server-validated checkout that calculates prices from the catalog and saves delivery details and orders to `data/orders.json`
 - Responsive, accessible storefront layout
+
+## GraphQL API
+
+The browser sends GraphQL operations to one endpoint, `/graphql`. A query reads data; a mutation changes data. For example, a product query can ask for exactly the fields it needs:
+
+```graphql
+query {
+  products {
+    id
+    name
+    price
+  }
+  me {
+    name
+    email
+  }
+}
+```
+
+The API also provides `signup`, `login`, `logout`, and `createOrder` mutations. GraphQL schema and resolver code live in `server.js`; browser requests are sent by the `graphqlRequest` helper in `public/app.js`.
 
 ## Local account storage
 

@@ -9,6 +9,7 @@ const {
 const { promisify } = require("node:util");
 const fs = require("node:fs");
 const path = require("node:path");
+const { buildSchema, graphql, GraphQLError } = require("graphql");
 
 // Keep file locations and server settings together so the rest of the code can reuse them.
 const ROOT = __dirname;
@@ -31,6 +32,77 @@ const loginAttempts = new Map();
 // Queue file writes so two requests don't overwrite each other's updates.
 let orderQueue = Promise.resolve();
 let accountQueue = Promise.resolve();
+
+// Describe the data clients can request and the actions they can perform.
+const schema = buildSchema(`
+  type Product {
+    id: ID!
+    name: String!
+    category: String!
+    price: Int!
+    description: String!
+    image: String!
+    badge: String!
+  }
+
+  type User {
+    id: ID!
+    name: String!
+    email: String!
+  }
+
+  type AuthPayload {
+    user: User!
+  }
+
+  type Order {
+    id: ID!
+    total: Int!
+    status: String!
+  }
+
+  input SignupInput {
+    name: String!
+    email: String!
+    password: String!
+  }
+
+  input LoginInput {
+    email: String!
+    password: String!
+  }
+
+  input CustomerInput {
+    name: String!
+    email: String!
+    address: String!
+    city: String!
+    postalCode: String!
+    country: String!
+  }
+
+  input OrderItemInput {
+    productId: ID!
+    quantity: Int!
+  }
+
+  input CreateOrderInput {
+    customer: CustomerInput!
+    items: [OrderItemInput!]!
+  }
+
+  type Query {
+    products: [Product!]!
+    me: User
+  }
+
+  type Mutation {
+    signup(input: SignupInput!): AuthPayload!
+    login(input: LoginInput!): AuthPayload!
+    logout: Boolean!
+    createOrder(input: CreateOrderInput!): Order!
+  }
+`);
 
 const mimeTypes = {
   ".css": "text/css; charset=utf-8",
@@ -138,15 +210,10 @@ async function createSession(response, user) {
 }
 
 // Validate a new account, hash its password, save it, and sign the customer in.
-async function handleSignup(request, response) {
-  if (isRateLimited(request)) {
-    return sendJson(response, 429, { error: "Too many sign-in attempts. Please try again later." });
-  }
-  const payload = await readJsonBody(request);
-  const name = payload && typeof payload.name === "string" ? payload.name.trim() : "";
-  const email = payload && typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
-  const password = payload && typeof payload.password === "string" ? payload.password : "";
-
+async function signupUser(input, request, response) {
+  const name = input.name.trim();
+  const email = input.email.trim().toLowerCase();
+  const password = input.password;
   if (
     !name ||
     name.length > 80 ||
@@ -155,8 +222,13 @@ async function handleSignup(request, response) {
     password.length < 10 ||
     password.length > 128
   ) {
-    return sendJson(response, 400, {
-      error: "Enter a name, valid email, and password between 10 and 128 characters.",
+    throw new GraphQLError("Enter a name, valid email, and password between 10 and 128 characters.", {
+      extensions: { code: "BAD_USER_INPUT" },
+    });
+  }
+  if (isRateLimited(request)) {
+    throw new GraphQLError("Too many sign-in attempts. Please try again later.", {
+      extensions: { code: "TOO_MANY_REQUESTS" },
     });
   }
 
@@ -183,21 +255,24 @@ async function handleSignup(request, response) {
   });
 
   if (!user) {
-    return sendJson(response, 409, { error: "An account with that email already exists." });
+    throw new GraphQLError("An account with that email already exists.", {
+      extensions: { code: "ACCOUNT_EXISTS" },
+    });
   }
-  return sendJson(response, 201, { user: await createSession(response, user) });
+  return { user: await createSession(response, user) };
 }
 
 // Check the submitted password against the stored hash and create a login session.
-async function handleLogin(request, response) {
+async function loginUser(input, request, response) {
+  const email = input.email.trim().toLowerCase();
+  const password = input.password;
   if (isRateLimited(request)) {
-    return sendJson(response, 429, { error: "Too many sign-in attempts. Please try again later." });
+    throw new GraphQLError("Too many sign-in attempts. Please try again later.", {
+      extensions: { code: "TOO_MANY_REQUESTS" },
+    });
   }
-  const payload = await readJsonBody(request);
-  const email = payload && typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
-  const password = payload && typeof payload.password === "string" ? payload.password : "";
   if (password.length > 128) {
-    return sendJson(response, 401, { error: "Email or password is incorrect." });
+    throw new GraphQLError("Email or password is incorrect.", { extensions: { code: "UNAUTHENTICATED" } });
   }
   const user = users.find((entry) => entry.email === email);
   const salt = user ? Buffer.from(user.passwordSalt, "hex") : Buffer.alloc(16);
@@ -207,9 +282,11 @@ async function handleLogin(request, response) {
     expectedHash.length === providedHash.length && timingSafeEqual(expectedHash, providedHash);
 
   if (!user || !validPassword) {
-    return sendJson(response, 401, { error: "Email or password is incorrect." });
+    throw new GraphQLError("Email or password is incorrect.", {
+      extensions: { code: "UNAUTHENTICATED" },
+    });
   }
-  return sendJson(response, 200, { user: await createSession(response, user) });
+  return { user: await createSession(response, user) };
 }
 
 // Read the incoming request body and turn its JSON text into a JavaScript value.
@@ -322,40 +399,55 @@ function saveOrder(order) {
   return write;
 }
 
-// Match an API request to its route and send back the appropriate JSON response.
-async function handleApi(request, response, pathname) {
-  if (request.method === "GET" && pathname === "/api/products") {
-    return sendJson(response, 200, { products });
-  }
-  if (request.method === "GET" && pathname === "/api/auth/me") {
-    const user = getAuthenticatedUser(request);
-    return sendJson(response, 200, { user: user ? publicUser(user) : null });
-  }
-  if (request.method === "POST" && pathname.startsWith("/api/auth/")) {
-    if (!requestHasSameOrigin(request)) {
-      return sendJson(response, 403, { error: "Request origin is not allowed." });
+// Map GraphQL query and mutation fields to the existing catalog, account, and order logic.
+const rootValue = {
+  products: () => products,
+  me: (_args, context) => {
+    const user = getAuthenticatedUser(context.request);
+    return user ? publicUser(user) : null;
+  },
+  signup: async ({ input }, context) => {
+    if (!requestHasSameOrigin(context.request)) {
+      throw new GraphQLError("Request origin is not allowed.", {
+        extensions: { code: "FORBIDDEN" },
+      });
     }
-    if (pathname === "/api/auth/signup") return handleSignup(request, response);
-    if (pathname === "/api/auth/login") return handleLogin(request, response);
-    if (pathname === "/api/auth/logout") {
-      const token = getSessionToken(request);
-      if (token) sessions.delete(hashToken(token));
-      clearSessionCookie(response);
-      return sendJson(response, 200, { user: null });
+    return signupUser(input, context.request, context.response);
+  },
+  login: async ({ input }, context) => {
+    if (!requestHasSameOrigin(context.request)) {
+      throw new GraphQLError("Request origin is not allowed.", {
+        extensions: { code: "FORBIDDEN" },
+      });
     }
-  }
-  if (request.method === "POST" && pathname === "/api/orders") {
-    if (!requestHasSameOrigin(request)) {
-      return sendJson(response, 403, { error: "Request origin is not allowed." });
+    return loginUser(input, context.request, context.response);
+  },
+  logout: (_args, context) => {
+    if (!requestHasSameOrigin(context.request)) {
+      throw new GraphQLError("Request origin is not allowed.", {
+        extensions: { code: "FORBIDDEN" },
+      });
     }
-    const user = getAuthenticatedUser(request);
+    const token = getSessionToken(context.request);
+    if (token) sessions.delete(hashToken(token));
+    clearSessionCookie(context.response);
+    return true;
+  },
+  createOrder: async ({ input }, context) => {
+    if (!requestHasSameOrigin(context.request)) {
+      throw new GraphQLError("Request origin is not allowed.", {
+        extensions: { code: "FORBIDDEN" },
+      });
+    }
+    const user = getAuthenticatedUser(context.request);
     if (!user) {
-      return sendJson(response, 401, { error: "Sign in before placing an order." });
+      throw new GraphQLError("Sign in before placing an order.", {
+        extensions: { code: "UNAUTHENTICATED" },
+      });
     }
-    const payload = await readJsonBody(request);
-    const result = validateOrder(payload);
+    const result = validateOrder(input);
     if (result.error) {
-      return sendJson(response, 400, { error: result.error });
+      throw new GraphQLError(result.error, { extensions: { code: "BAD_USER_INPUT" } });
     }
     const order = {
       id: randomUUID(),
@@ -365,11 +457,58 @@ async function handleApi(request, response, pathname) {
       createdAt: new Date().toISOString(),
     };
     await saveOrder(order);
-    return sendJson(response, 201, {
-      order: { id: order.id, total: order.total, status: order.status },
+    return { id: order.id, total: order.total, status: order.status };
+  },
+};
+
+// Accept GraphQL JSON requests at one endpoint and return a GraphQL response object.
+async function handleGraphql(request, response) {
+  if (request.method !== "POST") {
+    response.writeHead(405, { Allow: "POST" });
+    return response.end("GraphQL requests must use POST.");
+  }
+  if (!/^application\/json(?:\s*;|$)/i.test(request.headers["content-type"] || "")) {
+    return sendJson(response, 415, {
+      errors: [{ message: "GraphQL requests must use application/json." }],
     });
   }
-  return sendJson(response, 404, { error: "API route not found." });
+
+  const payload = await readJsonBody(request);
+  if (!payload || typeof payload.query !== "string") {
+    return sendJson(response, 400, {
+      errors: [{ message: "A GraphQL query string is required." }],
+    });
+  }
+
+  const result = await graphql({
+    schema,
+    source: payload.query,
+    rootValue,
+    contextValue: { request, response },
+    variableValues: payload.variables,
+    operationName: payload.operationName,
+  });
+  const errors = result.errors?.map((error) => {
+    if (error.originalError && !(error.originalError instanceof GraphQLError)) {
+      console.error("GraphQL resolver failed:", error.originalError);
+      return {
+        message: "The request could not be completed.",
+        extensions: { code: "INTERNAL_SERVER_ERROR" },
+      };
+    }
+    return {
+      message: error.message,
+      ...(error.extensions && Object.keys(error.extensions).length
+        ? { extensions: error.extensions }
+        : {}),
+    };
+  });
+  const responseBody = {
+    ...(Object.hasOwn(result, "data") ? { data: result.data } : {}),
+    ...(errors?.length ? { errors } : {}),
+  };
+  const requestError = errors?.length && !Object.hasOwn(result, "data");
+  return sendJson(response, requestError ? 400 : 200, responseBody);
 }
 
 // Serve website files from public/ and reject paths that try to leave that folder.
@@ -409,7 +548,7 @@ function serveStatic(request, response, pathname) {
   });
 }
 
-// The main request handler sends API URLs to handleApi and all other URLs to the static file server.
+// The main request handler sends /graphql requests to the GraphQL API and other URLs to the file server.
 const server = http.createServer(async (request, response) => {
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("X-Frame-Options", "DENY");
@@ -420,18 +559,21 @@ const server = http.createServer(async (request, response) => {
   );
 
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
-  if (url.pathname.startsWith("/api/")) {
+  if (url.pathname === "/graphql") {
     try {
-      await handleApi(request, response, url.pathname);
+      await handleGraphql(request, response);
     } catch (error) {
       console.error("Request failed:", error);
       if (!response.headersSent) {
         sendJson(response, error.statusCode || 500, {
-          error: error.statusCode ? error.message : "The request could not be completed.",
+          errors: [{ message: error.statusCode ? error.message : "The request could not be completed." }],
         });
       }
     }
     return;
+  }
+  if (url.pathname.startsWith("/api/")) {
+    return sendJson(response, 404, { error: "REST API has been replaced by /graphql." });
   }
 
   if (request.method !== "GET" && request.method !== "HEAD") {

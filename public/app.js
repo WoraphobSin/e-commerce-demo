@@ -59,6 +59,20 @@ function showToast(message) {
   toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2600);
 }
 
+// Send a GraphQL operation and turn server-reported GraphQL errors into browser errors.
+async function graphqlRequest(query, variables = {}) {
+  const response = await fetch("/graphql", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }),
+  });
+  const result = await response.json();
+  if (!response.ok || result.errors?.length) {
+    throw new Error(result.errors?.[0]?.message || "The request could not be completed.");
+  }
+  return result.data;
+}
+
 // Apply the selected category, search text, and sort order to the product list.
 function getVisibleProducts() {
   const query = searchInput.value.trim().toLowerCase();
@@ -219,15 +233,11 @@ async function submitAuth(event) {
   if (authMode === "signup") payload.name = formData.get("name");
 
   try {
-    const response = await fetch(`/api/auth/${authMode}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "We couldn't sign you in.");
-
-    authUser = result.user;
+    const operation = authMode === "signup"
+      ? "mutation SignUp($input: SignupInput!) { signup(input: $input) { user { id name email } } }"
+      : "mutation Login($input: LoginInput!) { login(input: $input) { user { id name email } } }";
+    const data = await graphqlRequest(operation, { input: payload });
+    authUser = data[authMode].user;
     cart = loadCart(authUser.id);
     updateCart();
     renderProducts();
@@ -250,8 +260,7 @@ async function submitAuth(event) {
 // End the server session and clear account-specific cart data from the page.
 async function logout() {
   try {
-    const response = await fetch("/api/auth/logout", { method: "POST" });
-    if (!response.ok) throw new Error("We couldn't sign you out. Please try again.");
+    await graphqlRequest("mutation Logout { logout }");
     authUser = null;
     cart = [];
     pendingAddProductId = null;
@@ -276,16 +285,18 @@ async function submitCheckout(event) {
   const customer = Object.fromEntries(new FormData(form));
 
   try {
-    const response = await fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        customer,
-        items: cart.map((item) => ({ productId: item.productId, quantity: item.quantity })),
-      }),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "We couldn't save your order.");
+    const data = await graphqlRequest(
+      `mutation CreateOrder($input: CreateOrderInput!) {
+        createOrder(input: $input) { id total status }
+      }`,
+      {
+        input: {
+          customer,
+          items: cart.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+        },
+      }
+    );
+    const order = data.createOrder;
 
     cart = [];
     updateCart();
@@ -293,7 +304,7 @@ async function submitCheckout(event) {
     checkoutDialog.close();
     cartDialog.close();
     document.querySelector("#success-message").textContent =
-      `Demo order ${result.order.id.slice(0, 8).toUpperCase()} has been saved. Your total is ${money.format(result.order.total)}.`;
+      `Demo order ${order.id.slice(0, 8).toUpperCase()} has been saved. Your total is ${money.format(order.total)}.`;
     successDialog.showModal();
   } catch (error) {
     errorMessage.textContent = error.message || "We couldn't save your order. Please try again.";
@@ -384,18 +395,14 @@ authDialog.addEventListener("close", () => {
 
 // Load the catalog and login state together before displaying the store.
 async function loadStore() {
-  const [productsResponse, authResponse] = await Promise.all([
-    fetch("/api/products"),
-    fetch("/api/auth/me"),
-  ]);
-  if (!productsResponse.ok) throw new Error("The collection could not be loaded.");
-  if (!authResponse.ok) throw new Error("Your account status could not be checked.");
-  const [productResult, authResult] = await Promise.all([
-    productsResponse.json(),
-    authResponse.json(),
-  ]);
-  products = productResult.products;
-  authUser = authResult.user;
+  const data = await graphqlRequest(
+    `query LoadStore {
+      products { id name category price description image badge }
+      me { id name email }
+    }`
+  );
+  products = data.products;
+  authUser = data.me;
   cart = authUser ? loadCart(authUser.id) : [];
   cart = cart.filter((item) => products.some((product) => product.id === item.productId));
   if (authUser) {

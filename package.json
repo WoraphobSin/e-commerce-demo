@@ -7,5 +7,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "check": "node --check server.js && node --check public/app.js"
+  },
+  "dependencies": {
+    "graphql": "^16.11.0"
   }
 }
